@@ -1,10 +1,12 @@
 
-// g++ generate.cpp -std=c++17 -o generate -O3
+// g++ generate.cpp -std=c++17 -lpthread -o generate -O3
 
 #include <fstream>
 #include <iostream>
+#include <mutex>
 #include <random>
 #include <string>
+#include <thread>
 #include <vector>
 
 std::vector<std::vector<int>> rows = {	{ 0, 1, 2, 3, 4, 5, 6, 7, 8},
@@ -224,10 +226,8 @@ std::vector<int> puzzle_prep(std::string puzzle_as_string = empty_puzzle)
 	return puzzle;
 }
 
-void generate(int num_of_puzzles, int seeds_required, std::string ofpath)
+void generate(int threadID, int num_of_puzzles, int seeds_required, std::ofstream* outfile, std::mutex* mutex)
 {
-	std::ofstream outfile(ofpath);
-
 	std::random_device rd;
     std::mt19937 _gen(rd());
     std::uniform_real_distribution<> _dis(0.0, 1.0);
@@ -260,25 +260,44 @@ void generate(int num_of_puzzles, int seeds_required, std::string ofpath)
 			int selection = int(solutions.size()*_dis(_gen));
 			valid_puzzles.push_back(solutions[selection]);
 			if (valid_puzzles.size() % 1000 == 0)
-				std::cout << valid_puzzles.size() << std::endl;
+				std::cout << threadID << "\t" << valid_puzzles.size() << std::endl;
 
+			mutex->lock();
 			for (int i : valid_puzzles[valid_puzzles.size()-1])
-				outfile << i;
-			outfile << std::endl;
+				*outfile << i;
+			*outfile << std::endl;
+			mutex->unlock();
 		}
 	}
-	outfile.close();
 }
 
 int main()
 {
-	generate(1000000, 27, "valid puzzles");
+	std::mutex mutex;
+	std::vector<std::thread> workers(0);
+	std::ofstream* outfile = new std::ofstream("valid puzzles");
 
+	//generate(100000, 27, outfile, &mutex);
+
+	int threads = 4;
+	for (int i = 0; i < threads; i++)
+	{
+		std::thread worker(generate, i, 100000, 27, outfile, &mutex);
+		workers.push_back(std::move(worker));
+	}
+
+	for (int i = 0; i < workers.size(); i++)
+		workers[i].join();
+
+	outfile->close();
+
+	return 0;
+}
+/*
 	std::cout << number_mask << std::endl;
 	std::cout << pencil_mask << std::endl;
 
 	std::string puzzle = "000000000001020300020304050006030700030872040002090800060209080007060900000000000";
 	brutish_solver(puzzle_prep(puzzle));
 	return 0;
-}
-
+}*/
