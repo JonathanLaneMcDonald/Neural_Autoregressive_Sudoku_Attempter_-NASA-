@@ -1,6 +1,7 @@
 
 // g++ generate.cpp -std=c++17 -lpthread -o generate -O3
 
+#include <algorithm>
 #include <fstream>
 #include <iostream>
 #include <mutex>
@@ -226,6 +227,56 @@ std::vector<int> puzzle_prep(std::string puzzle_as_string = empty_puzzle)
 	return puzzle;
 }
 
+std::string puzzle_to_string(std::vector<int> puzzle)
+{
+	std::string string;
+	string.reserve(81);
+
+	for(int i : puzzle)
+	{
+		if (i&number_mask)
+			string += char(48+i);
+		else
+			string += '0';
+	}
+
+	return string;
+}
+
+std::vector<int> backtrack(std::vector<int> solution)
+{
+	std::random_device rd;
+	std::mt19937 g(rd());
+
+	std::vector<std::vector<int>> puzzle = {solution};
+
+	int current_move = 0;
+	std::vector<int> eligible_moves;
+	for (int i = 0; i < 81; i ++)
+		eligible_moves.push_back(i);
+	std::shuffle(eligible_moves.begin(), eligible_moves.end(), g);
+	while (current_move < eligible_moves.size())
+	{
+		int position = eligible_moves[current_move];
+		int value = puzzle[puzzle.size()-1][position];
+		auto new_puzzle = puzzle[puzzle.size()-1];
+		new_puzzle[position] = 0;
+		if (brutish_solver(puzzle_prep(puzzle_to_string(new_puzzle))).size() == 1)
+		{
+			puzzle.push_back(new_puzzle);
+			eligible_moves.erase(std::remove_if(eligible_moves.begin(), eligible_moves.end(), [position](int x){return x == position;}), eligible_moves.end());
+			std::shuffle(eligible_moves.begin(), eligible_moves.end(), g);
+			current_move = 0;
+		}
+		else
+		{
+			current_move ++;
+		}
+	}
+	std::cout << eligible_moves.size() << ' ' << puzzle.size() << ' ' << current_move << ' ' << puzzle_to_string(puzzle[puzzle.size()-1]) << std::endl;
+	return puzzle[puzzle.size()-1];
+}
+
 void generate(int threadID, int num_of_puzzles, int seeds_required, std::ofstream* outfile, std::mutex* mutex)
 {
 	mutex->lock();
@@ -267,7 +318,10 @@ void generate(int threadID, int num_of_puzzles, int seeds_required, std::ofstrea
 			{
 				int selection = int(solutions.size()*_dis(_gen));
 
+				auto base_puzzle = puzzle_to_string(backtrack(solutions[selection]));
+
 				mutex->lock();
+				*outfile << base_puzzle << '\t';
 				for (int i : solutions[selection])
 					*outfile << i;
 				*outfile << std::endl;
