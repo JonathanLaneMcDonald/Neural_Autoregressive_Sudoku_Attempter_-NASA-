@@ -228,12 +228,16 @@ std::vector<int> puzzle_prep(std::string puzzle_as_string = empty_puzzle)
 
 void generate(int threadID, int num_of_puzzles, int seeds_required, std::ofstream* outfile, std::mutex* mutex)
 {
+	mutex->lock();
+	std::cout << "thread " << threadID << ": reporting for duty" << std::endl;
+	mutex->unlock();
+
 	std::random_device rd;
     std::mt19937 _gen(rd());
     std::uniform_real_distribution<> _dis(0.0, 1.0);
 
-	std::vector<std::vector<int>> valid_puzzles;
-	while (valid_puzzles.size() < num_of_puzzles)
+	int puzzles_completed = 0;
+	while (puzzles_completed < num_of_puzzles)
 	{
 		std::vector<std::vector<int>> puzzle = {puzzle_prep()};
 
@@ -262,41 +266,43 @@ void generate(int threadID, int num_of_puzzles, int seeds_required, std::ofstrea
 			if (!solutions.empty())
 			{
 				int selection = int(solutions.size()*_dis(_gen));
-				valid_puzzles.push_back(solutions[selection]);
-				if (valid_puzzles.size() % 1000 == 0)
-					std::cout << threadID << "\t" << valid_puzzles.size() << std::endl;
 
 				mutex->lock();
-				for (int i : valid_puzzles[valid_puzzles.size()-1])
+				for (int i : solutions[selection])
 					*outfile << i;
 				*outfile << std::endl;
 				mutex->unlock();
+
+				if (++puzzles_completed % 1000 == 0)
+					std::cout << threadID << "\t" << puzzles_completed << std::endl;
 			}
 		}
 		else
 		{
-			std::cout << "attempts exceeded limit" << std::endl;
+			std::cout << "attempts exceeded limit: ";
+			for (int i : puzzle[puzzle.size()-1])
+				if (i&number_mask)
+					std::cout << i;
+				else
+					std::cout << '0';
+			std::cout << std::endl;
 		}		
 	}
 }
 
 int main()
 {
-	std::mutex mutex;
+	std::mutex* mutex = new std::mutex;
 	std::vector<std::thread> workers(0);
 	std::ofstream* outfile = new std::ofstream("valid puzzles");
 
-	generate(0, 1000000, 27, outfile, &mutex);
+	generate(0, 1000000, 27, outfile, mutex);
 
 	return 0;
-}
-/*
+}/*
 	int threads = 4;
 	for (int i = 0; i < threads; i++)
-	{
-		std::thread worker(generate, i, 100000, 27, outfile, &mutex);
-		workers.push_back(std::move(worker));
-	}
+		workers.emplace_back(std::thread(generate, i, 100000, 27, outfile, mutex));
 
 	for (int i = 0; i < workers.size(); i++)
 		workers[i].join();
