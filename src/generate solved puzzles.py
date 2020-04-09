@@ -105,7 +105,7 @@ def brutish_solver(puzzle):
 	
 	if not recursible:
 		valid_puzzle = ''.join([str(x) if int(x&number_mask) else '0' for x in puzzle])
-		print (valid_puzzle)
+		#print (valid_puzzle)
 		return [valid_puzzle]
 	else:
 		return solutions
@@ -117,7 +117,7 @@ def puzzle_prep(puzzle_as_string = '0'*81):
 		if int(puzzle_as_string[i]):
 			puzzle = update(puzzle, i, int(puzzle_as_string[i]))
 	
-	print ('\n'.join([str(x) for x in puzzle]))
+	#print ('\n'.join([str(x) for x in puzzle]))
 	
 	return puzzle
 
@@ -145,25 +145,40 @@ def generate(puzzle_target, seeds_required, savefile):
 	puzzle_file.close()
 	return valid_puzzles
 
+def puzzle_to_string(puzzle):
+	return ''.join([str(x) if x&number_mask else '0' for x in puzzle])
+
+def backtrack(valid_puzzle):
+	
+	# state, position, value
+	puzzle = [(valid_puzzle, None, None)]
+
+	current_move = 0
+	eligible_moves = permutation(list(range(81)))
+	while current_move < len(eligible_moves):
+		position = eligible_moves[current_move]
+		value = puzzle[-1][0][position]
+		new_puzzle = np.copy(puzzle[-1][0])
+		new_puzzle[position] = 0
+		if len(brutish_solver(puzzle_prep(puzzle_to_string(new_puzzle)))) == 1:
+			print (81-len(puzzle),len(puzzle),current_move,puzzle_to_string(new_puzzle))
+			puzzle.append((new_puzzle,position,value))
+			eligible_moves = permutation(list(set(eligible_moves)-set([position])))
+			current_move = 0
+		else:
+			current_move += 1
+			print (current_move)
+	return puzzle_to_string(puzzle[-1][0])
+
 from sys import argv
 
-#valid_puzzles = generate(100000, 30, argv[1])
-
-#         123456789012345678901234567890123456789012345678901234567890123456789012345678901
-puzzle = '000000000001020300020304050006030700030872040002090800060209080007060900000000000'
-brutish_solver(puzzle_prep(puzzle))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+if len(argv) < 2:
+	puzzles_with_solutions = open('puzzles with solutions','w')
+	valid_puzzles = [x for x in open('valid puzzles','r').read().split('\n') if len(x) == 81]
+	for solution in valid_puzzles:
+		puzzle = backtrack(puzzle_prep(solution))
+		puzzles_with_solutions.write(puzzle + '\t' + solution + '\n')
+	puzzles_with_solutions.close()
+else:
+	print ('\n'.join(brutish_solver(puzzle_prep(argv[1]))))
 
