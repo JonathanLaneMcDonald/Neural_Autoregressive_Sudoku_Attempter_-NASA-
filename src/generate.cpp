@@ -237,8 +237,9 @@ void generate(int threadID, int num_of_puzzles, int seeds_required, std::ofstrea
 	{
 		std::vector<std::vector<int>> puzzle = {puzzle_prep()};
 
+		int attempts = 0;
 		int seeds_sewn = 0;
-		while (seeds_sewn < seeds_required)
+		while (seeds_sewn < seeds_required && attempts < 1000)
 		{
 			int position = int(81*_dis(_gen));
 			if (puzzle[puzzle.size()-1][position] & number_mask)
@@ -253,21 +254,29 @@ void generate(int threadID, int num_of_puzzles, int seeds_required, std::ofstrea
 				else
 					puzzle.pop_back();
 			}
+			attempts ++;
 		}
-		auto solutions = brutish_solver(puzzle[puzzle.size()-1]);
-		if (!solutions.empty())
+		if (seeds_sewn == seeds_required)
 		{
-			int selection = int(solutions.size()*_dis(_gen));
-			valid_puzzles.push_back(solutions[selection]);
-			if (valid_puzzles.size() % 1000 == 0)
-				std::cout << threadID << "\t" << valid_puzzles.size() << std::endl;
+			auto solutions = brutish_solver(puzzle[puzzle.size()-1]);
+			if (!solutions.empty())
+			{
+				int selection = int(solutions.size()*_dis(_gen));
+				valid_puzzles.push_back(solutions[selection]);
+				if (valid_puzzles.size() % 1000 == 0)
+					std::cout << threadID << "\t" << valid_puzzles.size() << std::endl;
 
-			mutex->lock();
-			for (int i : valid_puzzles[valid_puzzles.size()-1])
-				*outfile << i;
-			*outfile << std::endl;
-			mutex->unlock();
+				mutex->lock();
+				for (int i : valid_puzzles[valid_puzzles.size()-1])
+					*outfile << i;
+				*outfile << std::endl;
+				mutex->unlock();
+			}
 		}
+		else
+		{
+			std::cout << "attempts exceeded limit" << std::endl;
+		}		
 	}
 }
 
@@ -277,8 +286,11 @@ int main()
 	std::vector<std::thread> workers(0);
 	std::ofstream* outfile = new std::ofstream("valid puzzles");
 
-	//generate(100000, 27, outfile, &mutex);
+	generate(0, 1000000, 27, outfile, &mutex);
 
+	return 0;
+}
+/*
 	int threads = 4;
 	for (int i = 0; i < threads; i++)
 	{
