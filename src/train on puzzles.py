@@ -77,10 +77,48 @@ def create_dataset(source, samples):
 	
 	return puzzles, solutions
 
-model = build_sudoku_model(32, (3,3), 6)
+def validate_predictions(puzzles, solutions, predicted):
+	predictable = 0
+	accurate_predictions = 0
+	for p in range(len(puzzles)):
+		for r in range(9):
+			for c in range(9):
+				if puzzles[p][r][c][np.argmax(puzzles[p][r][c])] == 0:
+					if np.argmax(solutions[p][r][c]) == np.argmax(predicted[p][r][c]):
+						accurate_predictions += 1
+					predictable += 1
+	return accurate_predictions / predictable
+
+model = build_sudoku_model(64, (3,3), 5)
+#model = build_sudoku_model(128, (3,3), 10)
+#model = build_sudoku_model(256, (3,3), 20)
 
 solved_puzzles = open('valid puzzles','r').read().split('\n')[:-1]
 
+herstory = {'predictive validity':[]}
 for e in range(1,1000):
-	puzzles, solutions = create_dataset(solved_puzzles, 100000)
-	model.fit(puzzles, solutions, epochs=1, verbose=1, validation_split=0.10)
+	puzzles, solutions = create_dataset(solved_puzzles, 1000)
+	history = model.fit(puzzles, solutions, epochs=1, verbose=1, validation_split=0.10)
+
+	puzzles, solutions = create_dataset(solved_puzzles, 1000)
+	herstory['predictive validity'] += [validate_predictions(puzzles, solutions, model.predict(puzzles))]
+
+	for key,value in history.history.items():
+		if key in herstory:
+			herstory[key] += value
+		else:
+			herstory[key] = value
+	
+	for key,value in herstory.items():
+		if key.find('val') != -1:
+			print (key,' '.join([str(x) for x in value]))
+
+
+
+
+
+
+
+
+
+
