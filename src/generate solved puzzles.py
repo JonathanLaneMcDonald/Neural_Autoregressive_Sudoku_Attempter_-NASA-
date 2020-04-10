@@ -174,7 +174,7 @@ from sys import argv
 
 if len(argv) < 2:
 	puzzles_with_solutions = open('puzzles with solutions','w')
-	valid_puzzles = [x for x in open('valid puzzles','r').read().split('\n') if len(x) == 81]
+	valid_puzzles = permutation([x for x in open('valid puzzles','r').read().split('\n') if len(x) == 81])
 	for solution in valid_puzzles:
 		puzzle = backtrack(puzzle_prep(solution))
 		puzzles_with_solutions.write(puzzle + '\t' + solution + '\n')

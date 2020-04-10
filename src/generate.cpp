@@ -1,6 +1,7 @@
 
 // g++ generate.cpp -std=c++17 -lpthread -o generate -O3
 
+#include <atomic>
 #include <algorithm>
 #include <fstream>
 #include <iostream>
@@ -255,7 +256,7 @@ std::vector<int> backtrack(std::vector<int> solution)
 	for (int i = 0; i < 81; i ++)
 		eligible_moves.push_back(i);
 	std::shuffle(eligible_moves.begin(), eligible_moves.end(), g);
-	while (current_move < eligible_moves.size())
+	while (current_move < eligible_moves.size() && 5 < eligible_moves.size())
 	{
 		int position = eligible_moves[current_move];
 		int value = puzzle[puzzle.size()-1][position];
@@ -273,11 +274,11 @@ std::vector<int> backtrack(std::vector<int> solution)
 			current_move ++;
 		}
 	}
-	std::cout << eligible_moves.size() << ' ' << puzzle.size() << ' ' << current_move << ' ' << puzzle_to_string(puzzle[puzzle.size()-1]) << std::endl;
+	std::cout << eligible_moves.size() << ' ' << puzzle.size() << ' ' << puzzle_to_string(puzzle[puzzle.size()-1]) << std::endl;
 	return puzzle[puzzle.size()-1];
 }
 
-void generate(int threadID, int num_of_puzzles, int seeds_required, std::ofstream* outfile, std::mutex* mutex)
+void generate(int threadID, std::atomic_int* puzzle_count, int num_of_puzzles, int seeds_required, std::ofstream* outfile, std::mutex* mutex)
 {
 	mutex->lock();
 	std::cout << "thread " << threadID << ": reporting for duty" << std::endl;
@@ -287,8 +288,7 @@ void generate(int threadID, int num_of_puzzles, int seeds_required, std::ofstrea
     std::mt19937 _gen(rd());
     std::uniform_real_distribution<> _dis(0.0, 1.0);
 
-	int puzzles_completed = 0;
-	while (puzzles_completed < num_of_puzzles)
+	while (*puzzle_count < num_of_puzzles)
 	{
 		std::vector<std::vector<int>> puzzle = {puzzle_prep()};
 
@@ -327,8 +327,8 @@ void generate(int threadID, int num_of_puzzles, int seeds_required, std::ofstrea
 				*outfile << std::endl;
 				mutex->unlock();
 
-				if (++puzzles_completed % 1000 == 0)
-					std::cout << threadID << "\t" << puzzles_completed << std::endl;
+				if (++(*puzzle_count) % 1000 == 0)
+					std::cout << threadID << "\t" << *puzzle_count << std::endl;
 			}
 		}
 		else
@@ -346,17 +346,17 @@ void generate(int threadID, int num_of_puzzles, int seeds_required, std::ofstrea
 
 int main()
 {
-	std::mutex* mutex = new std::mutex;
-	std::vector<std::thread> workers(0);
+	std::atomic_int* puzzle_count = new std::atomic_int(0);
 	std::ofstream* outfile = new std::ofstream("valid puzzles");
+	std::mutex* mutex = new std::mutex;
 
-	generate(0, 1000000, 27, outfile, mutex);
+	//generate(0, 1000000, 27, outfile, mutex);
 
-	return 0;
-}/*
+	std::vector<std::thread> workers(0);
+
 	int threads = 4;
 	for (int i = 0; i < threads; i++)
-		workers.emplace_back(std::thread(generate, i, 100000, 27, outfile, mutex));
+		workers.emplace_back(std::thread(generate, i, puzzle_count, 100000, 27, outfile, mutex));
 
 	for (int i = 0; i < workers.size(); i++)
 		workers[i].join();
