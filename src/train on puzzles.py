@@ -1,10 +1,10 @@
 
 from keras.models import Model
 from keras.layers import Input
-from keras.layers import Conv2D
+from keras.layers import Conv2D, Add
 from keras.layers import BatchNormalization, Activation, Dropout
 
-def build_sudoku_model(filters, kernels, layers):
+def build_sudoku_model(filters, kernels, blocks, dilations=[(1,1),(1,1)]):
 	
 	input = Input(shape=(9,9,9))
 
@@ -13,11 +13,14 @@ def build_sudoku_model(filters, kernels, layers):
 	x = Activation('relu')(x)
 	x = Dropout(0.2)(x)
 	
-	for _ in range(layers-1):
-		x = Conv2D(filters=filters, kernel_size=kernels, padding='same')(x)
-		x = BatchNormalization()(x)
-		x = Activation('relu')(x)
-		x = Dropout(0.2)(x)
+	for _ in range(blocks):
+		y = x
+		for dilation in dilations:
+			y = Conv2D(filters=filters, kernel_size=kernels, padding='same', dilation_rate=dilation)(y)
+			y = BatchNormalization()(y)
+			y = Activation('relu')(y)
+			y = Dropout(0.2)(y)
+		x = Add()([x,y])
 
 	output = Conv2D(filters=9, kernel_size=(1,1), padding='same', activation='sigmoid')(x)
 
