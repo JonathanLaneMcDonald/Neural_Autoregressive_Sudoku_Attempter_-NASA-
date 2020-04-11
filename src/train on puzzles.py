@@ -89,19 +89,58 @@ def validate_predictions(puzzles, solutions, predicted):
 					predictable += 1
 	return accurate_predictions / predictable
 
-model = build_sudoku_model(64, (3,3), 5)
+def autoregressive_validation(puzzles, solutions, model):
+	def number_of_unpredicted(puzzle):
+		unpredicted = 0
+		for r in range(9):
+			for c in range(9):
+				if sum(puzzle[r][c]) == 0:
+					unpredicted += 1
+		return unpredicted
+
+	def get_max_prediction(puzzle, prediction):
+		predictions = []
+		for r in range(9):
+			for c in range(9):
+				if sum(puzzle[r][c]) == 0:
+					predictions.append((max(prediction[r][c]),(r,c),np.argmax(prediction[r][c])))
+		predictions = list(reversed(sorted(predictions)))
+		return predictions[0][1], predictions[0][2]
+
+	predictable = 0
+	accurate_predictions = 0
+	for p in range(len(puzzles)):
+		predicted = np.copy(puzzles[p])
+		
+		while number_of_unpredicted(predicted):
+			(r,c), value = get_max_prediction(predicted, model.predict(np.array([predicted]))[0])
+			predicted[r][c][value] = 1
+		
+		for r in range(9):
+			for c in range(9):
+				if puzzles[p][r][c][np.argmax(puzzles[p][r][c])] == 0:
+					if np.argmax(solutions[p][r][c]) == np.argmax(predicted[r][c]):
+						accurate_predictions += 1
+					predictable += 1
+	return accurate_predictions / predictable
+
+#model = build_sudoku_model(64, (3,3), 5)
 #model = build_sudoku_model(128, (3,3), 10)
-#model = build_sudoku_model(256, (3,3), 20)
+model = build_sudoku_model(256, (3,3), 20)
+#model = build_sudoku_model(256, (3,3), 40)
 
 solved_puzzles = open('valid puzzles','r').read().split('\n')[:-1]
 
-herstory = {'predictive validity':[]}
+herstory = {'predictive_validity':[],'autoregressive_validation':[]}
 for e in range(1,1000):
-	puzzles, solutions = create_dataset(solved_puzzles, 1000)
+	puzzles, solutions = create_dataset(solved_puzzles, 100000)
 	history = model.fit(puzzles, solutions, epochs=1, verbose=1, validation_split=0.10)
 
+	puzzles, solutions = create_dataset(solved_puzzles, 10000)
+	herstory['predictive_validity'] += [validate_predictions(puzzles, solutions, model.predict(puzzles))]
+
 	puzzles, solutions = create_dataset(solved_puzzles, 1000)
-	herstory['predictive validity'] += [validate_predictions(puzzles, solutions, model.predict(puzzles))]
+	herstory['autoregressive_validation'] += [autoregressive_validation(puzzles, solutions, model)]
 
 	for key,value in history.history.items():
 		if key in herstory:
@@ -111,7 +150,7 @@ for e in range(1,1000):
 	
 	for key,value in herstory.items():
 		if key.find('val') != -1:
-			print (key,' '.join([str(x) for x in value]))
+			print (key,' '.join([str(x)[:6] for x in value]))
 
 
 
