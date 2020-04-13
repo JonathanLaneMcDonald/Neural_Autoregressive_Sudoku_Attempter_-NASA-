@@ -66,12 +66,12 @@ def to_sparse(data):
 			frame[r][c][data[i]-1] = 1
 	return frame
 
-def create_dataset(source, samples, for_training=True):
+def create_dataset(source, samples, for_validation=False):
 	puzzles = np.zeros((samples, 9, 9, 9),dtype=np.int8)
 	solutions = np.zeros((samples, 9, 9, 9),dtype=np.int8)
 
 	for s in range(samples):
-		puzzle, solution = create_puzzle_solution_pair(source[int(npr()*len(source))],int(for_training)*npr())
+		puzzle, solution = create_puzzle_solution_pair(source[int(npr()*len(source))],int(for_validation)+npr())
 		puzzles[s] = to_sparse(puzzle)
 		solutions[s] = to_sparse(solution)
 	
@@ -137,10 +137,10 @@ for e in range(1,1000):
 	puzzles, solutions = create_dataset(solved_puzzles, 100000)
 	history = model.fit(puzzles, solutions, epochs=1, verbose=1, validation_split=0.10)
 
-	puzzles, solutions = create_dataset(solved_puzzles, 10000, False)
+	puzzles, solutions = create_dataset(solved_puzzles, 10000, True)
 	herstory['predictive_validity'] += [validate_predictions(puzzles, solutions, model.predict(puzzles))]
 
-	puzzles, solutions = create_dataset(solved_puzzles, 1000, False)
+	puzzles, solutions = create_dataset(solved_puzzles, 100, True)
 	herstory['autoregressive_validation'] += [autoregressive_validation(puzzles, solutions, model)]
 
 	for key,value in history.history.items():
