@@ -66,12 +66,12 @@ def to_sparse(data):
 			frame[r][c][data[i]-1] = 1
 	return frame
 
-def create_dataset(source, samples):
+def create_dataset(source, samples, for_training=True):
 	puzzles = np.zeros((samples, 9, 9, 9),dtype=np.int8)
 	solutions = np.zeros((samples, 9, 9, 9),dtype=np.int8)
 
 	for s in range(samples):
-		puzzle, solution = create_puzzle_solution_pair(source[int(npr()*len(source))],npr())
+		puzzle, solution = create_puzzle_solution_pair(source[int(npr()*len(source))],int(for_training)*npr())
 		puzzles[s] = to_sparse(puzzle)
 		solutions[s] = to_sparse(solution)
 	
@@ -124,22 +124,23 @@ def autoregressive_validation(puzzles, solutions, model):
 					predictable += 1
 	return accurate_predictions / predictable
 
-#model = build_sudoku_model(64, (3,3), 5)
+model = build_sudoku_model(64, (3,3), 5)
 #model = build_sudoku_model(128, (3,3), 10)
-model = build_sudoku_model(256, (3,3), 20)
+#model = build_sudoku_model(256, (3,3), 20)
 #model = build_sudoku_model(256, (3,3), 40)
 
 solved_puzzles = open('valid puzzles','r').read().split('\n')[:-1]
 
+best_ar = 0
 herstory = {'predictive_validity':[],'autoregressive_validation':[]}
 for e in range(1,1000):
 	puzzles, solutions = create_dataset(solved_puzzles, 100000)
 	history = model.fit(puzzles, solutions, epochs=1, verbose=1, validation_split=0.10)
 
-	puzzles, solutions = create_dataset(solved_puzzles, 10000)
+	puzzles, solutions = create_dataset(solved_puzzles, 10000, False)
 	herstory['predictive_validity'] += [validate_predictions(puzzles, solutions, model.predict(puzzles))]
 
-	puzzles, solutions = create_dataset(solved_puzzles, 1000)
+	puzzles, solutions = create_dataset(solved_puzzles, 1000, False)
 	herstory['autoregressive_validation'] += [autoregressive_validation(puzzles, solutions, model)]
 
 	for key,value in history.history.items():
@@ -152,7 +153,10 @@ for e in range(1,1000):
 		if key.find('val') != -1:
 			print (key,' '.join([str(x)[:6] for x in value]))
 
-
+	if best_ar < herstory['autoregressive_validation'][-1]:
+		best_ar = herstory['autoregressive_validation'][-1]
+		model.save('model - ar='+str(best_ar))
+		print ('model saved')
 
 
 
