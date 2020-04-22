@@ -1,8 +1,8 @@
 
 from keras.models import Model
 from keras.layers import Input
-from keras.layers import Conv2D, Add
-from keras.layers import BatchNormalization, Activation, Dropout
+from keras.layers import Conv2D, Conv3D, Add
+from keras.layers import BatchNormalization, Activation, Dropout, Reshape
 
 def build_sudoku_model(filters, kernels, blocks, dilations=[(1,1),(1,1)]):
 	
@@ -29,8 +29,35 @@ def build_sudoku_model(filters, kernels, blocks, dilations=[(1,1),(1,1)]):
 	model.summary()
 	return model
 
+def build_3D_sudoku_model(filters, kernels, blocks, dilations=[(1,1,1),(1,1,1)]):
+	
+	input = Input(shape=(9,9,9))
+
+	x = Reshape((9,9,9,1))(input)
+	x = Conv3D(filters=filters, kernel_size=kernels, padding='same')(x)
+	x = BatchNormalization()(x)
+	x = Activation('relu')(x)
+	x = Dropout(0.2)(x)
+	
+	for _ in range(blocks):
+		y = x
+		for dilation in dilations:
+			y = Conv3D(filters=filters, kernel_size=kernels, padding='same', dilation_rate=dilation)(y)
+			y = BatchNormalization()(y)
+			y = Activation('relu')(y)
+			y = Dropout(0.2)(y)
+		x = Add()([x,y])
+
+	x = Conv3D(filters=1, kernel_size=(1,1,1), padding='same', activation='sigmoid')(x)
+	output = Reshape((9,9,9))(x)
+
+	model = Model(inputs=input, outputs=output)
+	model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+	model.summary()
+	return model
+
 import numpy as np
-from numpy.random import permutation
+from numpy.random import permutation, normal
 from numpy.random import random as npr
 
 def create_random_homomorphism(line):
@@ -50,11 +77,13 @@ def create_puzzle_solution_pair(line, predictability):
 			else:
 				# it only appears in the solution, but should only appear in the puzzle
 				puzzle[i] = solution[i]
+		'''
 				solution[i] = '0'
 		else:
 			# it must appear in the puzzle, but currently appears in both, so remove it from the solution
 			solution[i] = '0'
-
+		'''
+		
 	return [int(x) for x in puzzle], [int(x) for x in solution]
 
 def to_sparse(data):
@@ -71,7 +100,7 @@ def create_dataset(source, samples, for_validation=False):
 	solutions = np.zeros((samples, 9, 9, 9),dtype=np.int8)
 
 	for s in range(samples):
-		puzzle, solution = create_puzzle_solution_pair(source[int(npr()*len(source))],int(for_validation)+npr())
+		puzzle, solution = create_puzzle_solution_pair(source[int(npr()*len(source))],int(for_validation)+max(0,npr()))
 		puzzles[s] = to_sparse(puzzle)
 		solutions[s] = to_sparse(solution)
 	
@@ -124,10 +153,10 @@ def autoregressive_validation(puzzles, solutions, model):
 					predictable += 1
 	return accurate_predictions / predictable
 
-model = build_sudoku_model(64, (3,3), 5)
-#model = build_sudoku_model(128, (3,3), 10)
+model = build_3D_sudoku_model(64, (3,3,3), 20)
+#model = build_sudoku_model(64, (3,3), 5)
+#model = build_sudoku_model(128, (3,3), 5)
 #model = build_sudoku_model(256, (3,3), 20)
-#model = build_sudoku_model(256, (3,3), 40)
 
 solved_puzzles = open('valid puzzles','r').read().split('\n')[:-1]
 
@@ -155,7 +184,7 @@ for e in range(1,1000):
 
 	if best_ar < herstory['autoregressive_validation'][-1]:
 		best_ar = herstory['autoregressive_validation'][-1]
-		model.save('model - ar='+str(best_ar))
+		model.save('model - ar='+str(best_ar)[:6])
 		print ('model saved')
 
 
