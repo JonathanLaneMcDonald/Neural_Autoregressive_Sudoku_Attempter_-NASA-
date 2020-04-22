@@ -6,6 +6,8 @@ from keras.models import load_model
 
 from tkinter import *
 
+SQ = 80
+
 h = '0123456789abcdef'
 def ftoh(f):
 	num = int(f*255)
@@ -22,33 +24,39 @@ class display( Frame ):
 			self.prediction = self.model.predict(np.array([self.board]))[0]
 		
 		# draw cursor position
-		self.canvas.create_rectangle(self.col*100,self.row*100,(self.col+1)*100,(self.row+1)*100,fill='#ffff88')
+		self.canvas.create_rectangle(self.col*SQ,self.row*SQ,(self.col+1)*SQ,(self.row+1)*SQ,fill='#ffff88')
 		
 		# draw lines
 		for line in range(9):
 			if line % 3 == 0:
-				self.canvas.create_line(line*100,0,line*100,900,fill='black',width=3)
-				self.canvas.create_line(0,line*100,900,line*100,fill='black',width=3)
+				self.canvas.create_line(line*SQ,0,line*SQ,9*SQ,fill='black',width=3)
+				self.canvas.create_line(0,line*SQ,9*SQ,line*SQ,fill='black',width=3)
 			else:
-				self.canvas.create_line(line*100,0,line*100,900,fill='black', dash=(5,5))
-				self.canvas.create_line(0,line*100,900,line*100,fill='black', dash=(5,5))
+				self.canvas.create_line(line*SQ,0,line*SQ,9*SQ,fill='black', dash=(5,5))
+				self.canvas.create_line(0,line*SQ,9*SQ,line*SQ,fill='black', dash=(5,5))
 
-		loc = {0:(0,0,30,30),1:(35,0,65,30),2:(70,0,100,30),3:(0,35,30,65),4:(35,35,65,65),5:(70,35,100,65),6:(0,70,30,100),7:(35,70,65,100),8:(70,70,100,100)}
-		txt = {0:(15,15),1:(50,15),2:(85,15),3:(15,50),4:(50,50),5:(85,50),6:(15,85),7:(50,85),8:(85,85)}
+		txt = {	0:(2*SQ//10,2*SQ//10),
+				1:(5*SQ//10,2*SQ//10),
+				2:(8*SQ//10,2*SQ//10),
+				3:(2*SQ//10,5*SQ//10),
+				4:(5*SQ//10,5*SQ//10),
+				5:(8*SQ//10,5*SQ//10),
+				6:(2*SQ//10,8*SQ//10),
+				7:(5*SQ//10,8*SQ//10),
+				8:(8*SQ//10,8*SQ//10)}
 		
 		for r in range(9):
 			for c in range(9):
 				if self.show_solution:
-					self.canvas.create_text(c*100+50,r*100+50,font=self.assign_font,text=str(np.argmax(self.solution[r][c])+1))
+					self.canvas.create_text(c*SQ+SQ//2,r*SQ+SQ//2,font=self.assign_font,text=str(np.argmax(self.solution[r][c])+1))
 				else:
 					if max(self.board[r][c]) == 1:
-						self.canvas.create_text(c*100+50,r*100+50,font=self.assign_font,text=str(np.argmax(self.board[r][c])+1))
+						self.canvas.create_text(c*SQ+SQ//2,r*SQ+SQ//2,font=self.assign_font,text=str(np.argmax(self.board[r][c])+1))
 					else:
 						prefs = self.prediction[r][c]
 						for p in range(9):
 							value = 1-prefs[p]#**2
-							self.canvas.create_text(c*100 + txt[p][0], r*100 + txt[p][1],font=self.pencil_font,text=str(p+1), fill='#ff'+ftoh(value)+ftoh(value))
-							#self.canvas.create_oval(c*100 + loc[p][0], r*100 + loc[p][1], c*100 + loc[p][2],  r*100 + loc[p][3], fill='#ff'+ftoh(value)+ftoh(value))
+							self.canvas.create_text(c*SQ + txt[p][0], r*SQ + txt[p][1],font=self.pencil_font,text=str(p+1), fill='#ff'+ftoh(value)+ftoh(value))
 						
 		self.canvas.update_idletasks()
 	
@@ -108,7 +116,7 @@ class display( Frame ):
 		self.master.columnconfigure(0,weight=1)
 		self.grid(sticky=N+S+E+W)
 
-		self.canvas=Canvas(self,width=900, height=900)
+		self.canvas=Canvas(self,width=9*SQ, height=9*SQ)
 		self.canvas.grid(row=0,column=0)
 
 		self.bind_all('<KeyPress>', self.keyboard)
@@ -117,8 +125,8 @@ class display( Frame ):
 
 	def __init__(self):
 		
-		self.assign_font = ('TakaoMincho', 64)
-		self.pencil_font = ('TakaoMincho', 16)
+		self.assign_font = ('Helvetica', 48)
+		self.pencil_font = ('Helvetica', 12)
 
 		self.board = np.zeros((9,9,9))
 		self.model = load_model('model - ar=0.9057')
