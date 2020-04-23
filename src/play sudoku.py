@@ -22,6 +22,7 @@ class display( Frame ):
 		
 		if self.update_prediction:
 			self.prediction = self.model.predict(np.array([self.board]))[0]
+			self.update_prediction = False
 		
 		# draw cursor position
 		self.canvas.create_rectangle(self.col*SQ,self.row*SQ,(self.col+1)*SQ,(self.row+1)*SQ,fill='#ffff88')
@@ -63,6 +64,7 @@ class display( Frame ):
 	def hard_reset(self):
 		self.board = np.zeros((9,9,9))
 		self.solution = np.zeros((9,9,9))
+		self.update_prediction = True
 
 	def reset_puzzle(self):
 		selection = int(npr()*len(self.puzzle_collection))
@@ -81,6 +83,8 @@ class display( Frame ):
 			if solution[p]:
 				self.solution[r][c][solution[p]-1] = 1
 
+		self.update_prediction = True
+
 	def keyboard(self, event):
 
 		if event.keysym == 'Up':			self.row -= 1
@@ -95,12 +99,14 @@ class display( Frame ):
 		if event.keysym == 'space':
 			self.board[self.row][self.col] = np.zeros(9)
 			self.board[self.row][self.col][np.argmax(self.prediction[self.row][self.col])] = 1
+			self.update_prediction = True
 
 		if event.keysym.isdigit():
 			number = np.zeros(9)
 			if int(event.keysym):
 				number[int(event.keysym)-1] = 1
 			self.board[self.row][self.col] = number
+			self.update_prediction = True
 
 		self.row = max(0, min(8, self.row))
 		self.col = max(0, min(8, self.col))
@@ -109,6 +115,11 @@ class display( Frame ):
 
 		self.draw()
 	
+	def mouse_update(self, event):
+		self.row = int(event.y//SQ)
+		self.col = int(event.x//SQ)
+		self.draw()
+
 	def invent_canvas(self):
 		Frame.__init__(self)
 		self.master.title('Lane\'s Sudoku Helper')
@@ -120,6 +131,7 @@ class display( Frame ):
 		self.canvas.grid(row=0,column=0)
 
 		self.bind_all('<KeyPress>', self.keyboard)
+		self.bind_all('<Motion>', self.mouse_update)
 
 		self.draw()
 
