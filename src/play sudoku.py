@@ -1,4 +1,36 @@
 
+''' do some preliminary work where we populate some arrays of helpers so we can reduce the amount of repeat work we do '''
+rows = [[y for y in range(81)][x*9:(x+1)*9] for x in range(9)]
+cols = [[y for y in range(81)][x::9] for x in range(9)]
+
+blks = []
+for R in range(3):
+	for C in range(3):
+		blk = []
+		for r in range(3):
+			for c in range(3):
+				blk.append(R*3*9 + C*3 + r*9 + c)
+		blks.append(blk)
+
+#print ('\n'.join([str(x) for x in rows]))
+#print ('\n'.join([str(x) for x in cols]))
+#print ('\n'.join([str(x) for x in blks]))
+
+membership = []
+for i in range(81):
+	''' find out what groups i'm part of and store them as tuples (r,c,g) 
+		then you find the available pencilmarks for each r,c,g and for each of the 81 positions, you do the r,c,g tuple.  great :) '''
+
+	r = i//9
+	c = i%9
+	b = 0
+	for j in range(9):
+		if set(blks[j]).issuperset([i]):
+			b = j
+	membership.append((r,c,b))
+
+#print ('\n'.join([str(x) for x in membership]))
+
 import numpy as np
 from numpy.random import random as npr
 
@@ -21,7 +53,10 @@ class display( Frame ):
 		self.canvas.delete('all')
 		
 		if self.update_annotation:
-			self.annotation = self.model.predict(np.array([self.board]))[0]
+			if self.annotate_with_model:
+				self.annotation = self.model.predict(np.array([self.board]))[0]
+			else:
+				self.annotation = self.generate_pencil_marks()
 			self.update_annotation = False
 		
 		# draw cursor position
@@ -61,6 +96,21 @@ class display( Frame ):
 						
 		self.canvas.update_idletasks()
 	
+	def generate_pencil_marks(self):
+
+		# generate pencil marks for rows, cols, and blocks, then "and" them together for each position
+		row_marks = [set(range(9)) - set([np.argmax(self.board[x//9][x%9]) for x in r if np.max(self.board[x//9][x%9]) == 1]) for r in rows]
+		col_marks = [set(range(9)) - set([np.argmax(self.board[x//9][x%9]) for x in c if np.max(self.board[x//9][x%9]) == 1]) for c in cols]
+		blk_marks = [set(range(9)) - set([np.argmax(self.board[x//9][x%9]) for x in b if np.max(self.board[x//9][x%9]) == 1]) for b in blks]
+
+		pencil_marks = np.zeros((9,9,9))
+		for m in range(81):
+			r, c = m//9, m%9
+			for i in row_marks[membership[m][0]].intersection(col_marks[membership[m][1]]).intersection(blk_marks[membership[m][2]]):
+				pencil_marks[r][c][i] = 1
+		
+		return pencil_marks
+
 	def hard_reset(self):
 		self.board = np.zeros((9,9,9))
 		self.solution = np.zeros((9,9,9))
@@ -95,6 +145,10 @@ class display( Frame ):
 		if event.keysym == 'r':				self.reset_puzzle()
 		if event.keysym == 'R':				self.hard_reset()
 		if event.keysym == 's':				self.show_solution ^= 1
+
+		if event.keysym == 'h':
+			self.annotate_with_model ^= 1
+			self.update_annotation = True
 
 		if event.keysym == 'space':
 			self.board[self.row][self.col] = np.zeros(9)
@@ -144,6 +198,7 @@ class display( Frame ):
 		self.model = load_model('model - ar=0.9057')
 		
 		self.update_annotation = True
+		self.annotate_with_model = 0
 		self.annotation = np.zeros((9,9,9))
 		self.solution = np.zeros((9,9,9))
 
