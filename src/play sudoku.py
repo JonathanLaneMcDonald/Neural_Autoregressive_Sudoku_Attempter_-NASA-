@@ -20,9 +20,9 @@ class display( Frame ):
 	def draw(self):
 		self.canvas.delete('all')
 		
-		if self.update_prediction:
-			self.prediction = self.model.predict(np.array([self.board]))[0]
-			self.update_prediction = False
+		if self.update_annotation:
+			self.annotation = self.model.predict(np.array([self.board]))[0]
+			self.update_annotation = False
 		
 		# draw cursor position
 		self.canvas.create_rectangle(self.col*SQ,self.row*SQ,(self.col+1)*SQ,(self.row+1)*SQ,fill='#ffff88')
@@ -54,7 +54,7 @@ class display( Frame ):
 					if max(self.board[r][c]) == 1:
 						self.canvas.create_text(c*SQ+SQ//2,r*SQ+SQ//2,font=self.assign_font,text=str(np.argmax(self.board[r][c])+1))
 					else:
-						prefs = self.prediction[r][c]
+						prefs = self.annotation[r][c]
 						for p in range(9):
 							value = 1-prefs[p]#**2
 							self.canvas.create_text(c*SQ + txt[p][0], r*SQ + txt[p][1],font=self.pencil_font,text=str(p+1), fill='#ff'+ftoh(value)+ftoh(value))
@@ -64,7 +64,7 @@ class display( Frame ):
 	def hard_reset(self):
 		self.board = np.zeros((9,9,9))
 		self.solution = np.zeros((9,9,9))
-		self.update_prediction = True
+		self.update_annotation = True
 
 	def reset_puzzle(self):
 		selection = int(npr()*len(self.puzzle_collection))
@@ -83,7 +83,7 @@ class display( Frame ):
 			if solution[p]:
 				self.solution[r][c][solution[p]-1] = 1
 
-		self.update_prediction = True
+		self.update_annotation = True
 
 	def keyboard(self, event):
 
@@ -98,15 +98,15 @@ class display( Frame ):
 
 		if event.keysym == 'space':
 			self.board[self.row][self.col] = np.zeros(9)
-			self.board[self.row][self.col][np.argmax(self.prediction[self.row][self.col])] = 1
-			self.update_prediction = True
+			self.board[self.row][self.col][np.argmax(self.annotation[self.row][self.col])] = 1
+			self.update_annotation = True
 
 		if event.keysym.isdigit():
 			number = np.zeros(9)
 			if int(event.keysym):
 				number[int(event.keysym)-1] = 1
 			self.board[self.row][self.col] = number
-			self.update_prediction = True
+			self.update_annotation = True
 
 		self.row = max(0, min(8, self.row))
 		self.col = max(0, min(8, self.col))
@@ -143,8 +143,8 @@ class display( Frame ):
 		self.board = np.zeros((9,9,9))
 		self.model = load_model('model - ar=0.9057')
 		
-		self.update_prediction = True
-		self.prediction = np.zeros((9,9,9))
+		self.update_annotation = True
+		self.annotation = np.zeros((9,9,9))
 		self.solution = np.zeros((9,9,9))
 
 		self.puzzle_collection = open('valid puzzles','r').read().split('\n')[:-1]
