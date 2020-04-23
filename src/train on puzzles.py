@@ -1,4 +1,36 @@
 
+''' do some preliminary work where we populate some arrays of helpers so we can reduce the amount of repeat work we do '''
+rows = [[y for y in range(81)][x*9:(x+1)*9] for x in range(9)]
+cols = [[y for y in range(81)][x::9] for x in range(9)]
+
+blks = []
+for R in range(3):
+	for C in range(3):
+		blk = []
+		for r in range(3):
+			for c in range(3):
+				blk.append(R*3*9 + C*3 + r*9 + c)
+		blks.append(blk)
+
+#print ('\n'.join([str(x) for x in rows]))
+#print ('\n'.join([str(x) for x in cols]))
+#print ('\n'.join([str(x) for x in blks]))
+
+membership = []
+for i in range(81):
+	''' find out what groups i'm part of and store them as tuples (r,c,g) 
+		then you find the available pencilmarks for each r,c,g and for each of the 81 positions, you do the r,c,g tuple.  great :) '''
+
+	r = i//9
+	c = i%9
+	b = 0
+	for j in range(9):
+		if set(blks[j]).issuperset([i]):
+			b = j
+	membership.append((r,c,b))
+
+#print ('\n'.join([str(x) for x in membership]))
+
 from keras.models import Model
 from keras.layers import Input
 from keras.layers import Conv2D, Conv3D, Add
@@ -86,6 +118,21 @@ def create_puzzle_solution_pair(line, predictability):
 		
 	return [int(x) for x in puzzle], [int(x) for x in solution]
 
+def generate_pencil_marks(puzzle):
+
+	# generate pencil marks for rows, cols, and blocks, then "and" them together for each position
+	row_marks = [set(range(9)) - set([np.argmax(puzzle[x//9][x%9]) for x in r if np.max(puzzle[x//9][x%9]) == 1]) for r in rows]
+	col_marks = [set(range(9)) - set([np.argmax(puzzle[x//9][x%9]) for x in c if np.max(puzzle[x//9][x%9]) == 1]) for c in cols]
+	blk_marks = [set(range(9)) - set([np.argmax(puzzle[x//9][x%9]) for x in b if np.max(puzzle[x//9][x%9]) == 1]) for b in blks]
+
+	pencil_marks = np.zeros((9,9,9))
+	for m in range(81):
+		r, c = m//9, m%9
+		for i in row_marks[membership[m][0]].intersection(col_marks[membership[m][1]]).intersection(blk_marks[membership[m][2]]):
+			pencil_marks[r][c][i] = 1
+	
+	return pencil_marks
+
 def to_sparse(data):
 	frame = np.zeros((9,9,9),dtype=np.int8)
 	for i in range(81):
@@ -101,9 +148,11 @@ def create_dataset(source, samples, for_validation=False):
 
 	for s in range(samples):
 		puzzle, solution = create_puzzle_solution_pair(source[int(npr()*len(source))],int(for_validation)+max(0,npr()))
-		puzzles[s] = to_sparse(puzzle)
+		puzzles[s] = generate_pencil_marks(to_sparse(puzzle))
 		solutions[s] = to_sparse(solution)
-	
+		if s and s % 100 == 0:
+			print (s)
+
 	return puzzles, solutions
 
 def validate_predictions(puzzles, solutions, predicted):
@@ -153,7 +202,7 @@ def autoregressive_validation(puzzles, solutions, model):
 					predictable += 1
 	return accurate_predictions / predictable
 
-model = build_3D_sudoku_model(64, (3,3,3), 20)
+model = build_3D_sudoku_model(64, (3,3,3), 5)
 #model = build_sudoku_model(64, (3,3), 5)
 #model = build_sudoku_model(128, (3,3), 5)
 #model = build_sudoku_model(256, (3,3), 20)
@@ -169,7 +218,7 @@ for e in range(1,1000):
 	puzzles, solutions = create_dataset(solved_puzzles, 10000, True)
 	herstory['predictive_validity'] += [validate_predictions(puzzles, solutions, model.predict(puzzles))]
 
-	puzzles, solutions = create_dataset(solved_puzzles, 100, True)
+	puzzles, solutions = create_dataset(solved_puzzles, 1000, True)
 	herstory['autoregressive_validation'] += [autoregressive_validation(puzzles, solutions, model)]
 
 	for key,value in history.history.items():
