@@ -109,7 +109,7 @@ class display( Frame ):
 			for i in row_marks[membership[m][0]].intersection(col_marks[membership[m][1]]).intersection(blk_marks[membership[m][2]]):
 				pencil_marks[r][c][i] = 1
 		
-		return pencil_marks
+		return pencil_marks + self.board
 
 	def hard_reset(self):
 		self.board = np.zeros((9,9,9))
