@@ -54,10 +54,10 @@ def build_sudoku_model(filters, kernels, blocks, dilations=[(1,1),(1,1)]):
 			y = Dropout(0.2)(y)
 		x = Add()([x,y])
 
-	output = Conv2D(filters=9, kernel_size=(1,1), padding='same', activation='sigmoid')(x)
+	output = Conv2D(filters=9, kernel_size=(1,1), padding='same', activation='softmax')(x)
 
 	model = Model(inputs=input, outputs=output)
-	model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+	model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 	model.summary()
 	return model
 
@@ -80,11 +80,12 @@ def build_3D_sudoku_model(filters, kernels, blocks, dilations=[(1,1,1),(1,1,1)])
 			y = Dropout(0.2)(y)
 		x = Add()([x,y])
 
-	x = Conv3D(filters=1, kernel_size=(1,1,1), padding='same', activation='sigmoid')(x)
-	output = Reshape((9,9,9))(x)
+	x = Conv3D(filters=1, kernel_size=(1,1,1), padding='same', activation='relu')(x)
+	x = Reshape((9,9,9))(x)
+	output = Conv2D(filters=9, kernel_size=(1,1), padding='same', activation='softmax')(x)
 
 	model = Model(inputs=input, outputs=output)
-	model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+	model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 	model.summary()
 	return model
 
@@ -131,7 +132,7 @@ def generate_pencil_marks(puzzle):
 		for i in row_marks[membership[m][0]].intersection(col_marks[membership[m][1]]).intersection(blk_marks[membership[m][2]]):
 			pencil_marks[r][c][i] = 1
 	
-	return pencil_marks
+	return pencil_marks + puzzle
 
 def to_sparse(data):
 	frame = np.zeros((9,9,9),dtype=np.int8)
@@ -145,29 +146,32 @@ def to_sparse(data):
 def create_dataset(source, samples, for_validation=False):
 	puzzles = np.zeros((samples, 9, 9, 9),dtype=np.int8)
 	solutions = np.zeros((samples, 9, 9, 9),dtype=np.int8)
+	pencilmarks = np.zeros((samples, 9, 9, 9),dtype=np.int8)
 
 	for s in range(samples):
 		puzzle, solution = create_puzzle_solution_pair(source[int(npr()*len(source))],int(for_validation)+max(0,npr()))
-		puzzles[s] = generate_pencil_marks(to_sparse(puzzle))
+		puzzles[s] = to_sparse(puzzle)
 		solutions[s] = to_sparse(solution)
-		if s and s % 100 == 0:
-			print (s)
+		pencilmarks[s] = generate_pencil_marks(puzzles[s])
 
-	return puzzles, solutions
+	return puzzles, solutions, pencilmarks
 
-def validate_predictions(puzzles, solutions, predicted):
+def validate_predictions(puzzles, solutions, pencilmarks, model):
+	predicted = model.predict(pencilmarks)
+
 	predictable = 0
 	accurate_predictions = 0
 	for p in range(len(puzzles)):
 		for r in range(9):
 			for c in range(9):
-				if puzzles[p][r][c][np.argmax(puzzles[p][r][c])] == 0:
+				if sum(puzzles[p][r][c]) == 0:
 					if np.argmax(solutions[p][r][c]) == np.argmax(predicted[p][r][c]):
 						accurate_predictions += 1
 					predictable += 1
+
 	return accurate_predictions / predictable
 
-def autoregressive_validation(puzzles, solutions, model):
+def autoregressive_validation(puzzles, solutions, pencilmarks, model):
 	def number_of_unpredicted(puzzle):
 		unpredicted = 0
 		for r in range(9):
@@ -188,18 +192,19 @@ def autoregressive_validation(puzzles, solutions, model):
 	predictable = 0
 	accurate_predictions = 0
 	for p in range(len(puzzles)):
-		predicted = np.copy(puzzles[p])
+		working_puzzle = np.copy(puzzles[p])
 		
-		while number_of_unpredicted(predicted):
-			(r,c), value = get_max_prediction(predicted, model.predict(np.array([predicted]))[0])
-			predicted[r][c][value] = 1
+		while number_of_unpredicted(working_puzzle):
+			(r,c), value = get_max_prediction(working_puzzle, model.predict(np.array([generate_pencil_marks(working_puzzle)]))[0])
+			working_puzzle[r][c][value] = 1
 		
 		for r in range(9):
 			for c in range(9):
-				if puzzles[p][r][c][np.argmax(puzzles[p][r][c])] == 0:
-					if np.argmax(solutions[p][r][c]) == np.argmax(predicted[r][c]):
+				if sum(puzzles[p][r][c]) == 0:
+					if np.argmax(solutions[p][r][c]) == np.argmax(working_puzzle[r][c]):
 						accurate_predictions += 1
 					predictable += 1
+					
 	return accurate_predictions / predictable
 
 model = build_3D_sudoku_model(64, (3,3,3), 5)
@@ -212,14 +217,14 @@ solved_puzzles = open('valid puzzles','r').read().split('\n')[:-1]
 best_ar = 0
 herstory = {'predictive_validity':[],'autoregressive_validation':[]}
 for e in range(1,1000):
-	puzzles, solutions = create_dataset(solved_puzzles, 100000)
-	history = model.fit(puzzles, solutions, epochs=1, verbose=1, validation_split=0.10)
+	puzzles, solutions, pencilmarks = create_dataset(solved_puzzles, 100000)
+	history = model.fit(pencilmarks, solutions, epochs=1, verbose=1, validation_split=0.10)
 
-	puzzles, solutions = create_dataset(solved_puzzles, 10000, True)
-	herstory['predictive_validity'] += [validate_predictions(puzzles, solutions, model.predict(puzzles))]
+	puzzles, solutions, pencilmarks = create_dataset(solved_puzzles, 1000, True)
+	herstory['predictive_validity'] += [validate_predictions(puzzles, solutions, pencilmarks, model)]
 
-	puzzles, solutions = create_dataset(solved_puzzles, 1000, True)
-	herstory['autoregressive_validation'] += [autoregressive_validation(puzzles, solutions, model)]
+	puzzles, solutions, pencilmarks = create_dataset(solved_puzzles, 100, True)
+	herstory['autoregressive_validation'] += [autoregressive_validation(puzzles, solutions, pencilmarks, model)]
 
 	for key,value in history.history.items():
 		if key in herstory:
