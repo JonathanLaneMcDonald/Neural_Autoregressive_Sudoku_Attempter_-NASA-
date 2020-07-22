@@ -91,7 +91,7 @@ def build_3D_sudoku_model(filters, kernels, layers):
 	output = Conv2D(filters=9, kernel_size=(1,1), padding='same', activation='softmax', kernel_initializer=RandomNormal(mean=0, stddev=0.01))(x)
 
 	model = Model(inputs=input, outputs=output)
-	model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+	model.compile(loss='categorical_crossentropy', optimizer=Adam(), metrics=['accuracy'])
 	model.summary()
 	return model
 
@@ -207,8 +207,12 @@ def create_dataset(source, samples, for_validation=False, puzzles_for_review = [
 
 	return puzzles, solutions, pencilmarks
 
-def validate_predictions(puzzles, solutions, pencilmarks, model):
+def validate_predictions(puzzles, solutions, pencilmarks, model, recursions=1):
 	predicted = model.predict(puzzles)
+
+	for i in range(1,recursions):
+		print ('recursing in validate_predictions:',i)
+		predicted = model.predict(predicted)
 
 	predictable = 0
 	accurate_predictions = 0
@@ -222,7 +226,7 @@ def validate_predictions(puzzles, solutions, pencilmarks, model):
 
 	return accurate_predictions / predictable
 
-def autoregressive_validation(puzzles, solutions, pencilmarks, model):
+def autoregressive_validation(puzzles, solutions, pencilmarks, model, recursions=1):
 	def number_of_unpredicted(puzzle):
 		unpredicted = 0
 		for r in range(9):
@@ -246,13 +250,14 @@ def autoregressive_validation(puzzles, solutions, pencilmarks, model):
 		working_puzzle = np.copy(puzzles[p])
 		
 		while number_of_unpredicted(working_puzzle):
-			(r,c), value = get_max_prediction(working_puzzle, model.predict(np.array([working_puzzle]))[0])
-			working_puzzle[r][c][value] = 1
+			predicted = model.predict(np.array([working_puzzle]))[0]
 		
-		for r in range(9):
-			for c in range(9):
-				if sum(puzzles[p][r][c]) == 0:
-					if np.argmax(solutions[p][r][c]) == np.argmax(working_puzzle[r][c]):
+			for i in range(1, recursions):
+				predicted = model.predict(np.array([predicted]))[0]
+
+			(r,c), value = get_max_prediction(working_puzzle, predicted)
+
+			if np.argmax(solutions[p][r][c]) == value:
 						accurate_predictions += 1
 					predictable += 1
 					
@@ -306,7 +311,11 @@ the sudoku "paper"
 			
 			the model is trained to predict solutions in one shot from a partially completed puzzle
 
-	methods
+		recursion
+
+			we all know about recursion in programming, but there's also a thing called a recursive neural net. i'm not using recursive layers here, but i did attempt to apply the network recursively, which was possible because the outputs are the same shape as the inputs, and the results were pretty good! - so just point out that this is vocabulary at this point and i don't actually have experience with recursion in networks, but i've heard the vocabulary and it got me thinking of trying something.
+
+	methods and results
 
 		generation of puzzles and solutions
 
@@ -327,6 +336,34 @@ the sudoku "paper"
 			turns out i wrote this really old sudoku solver, which is also available
 
 			then i used that to analyze the results and see what it got right on a per-technique basis?
+
+		exploration
+
+			so we've got what we've got... how can we make it better?
+
+			specifically:
+				we've trained a series of networks and we can see that conv3d > conv2d, deeper > shallow, replay > no replay, and we've used fine-tuning. this has taken us from ~50% to ~80% accuracy predicting the solution at once and from ~55% to ~95% accuracy predicting the solution autoregressively. so let's poke around and see what else we can find...
+
+				lazy recursion
+					recursive layers are a thing. sudoku takes binary inputs and produces a bunch of probability distributions, but they're the same shape as the input. this means if we ask the network for a set of predictions, we can just feed those predictions through the network again as many times as we want. the question is whether or not that helps with anything.
+
+					whole solution prediction is faster than autoregressive prediction, so we can start with that and it turns out to be pretty effective! two passes take us from 81 to 85% prediction accuracy! but that benefit seems to attenuate after just two applications, but we see there's some promise here, so we set up to measure autoregressive performance, too.
+
+					the final step (for me) will be to just train a deeper network and apply it recursively, so i'll throw away the weight limit and train a 3d 32x100 model with replay and fine-tuning and apply it recursively and see what happens!
+			
+			things that could take this further
+
+				the main thing i can think of is attention. attention mechanisms have been used very successfully in nlp. it might be kind of complicated to extend to our 3d space, but it'd probably take this project to the next level!
+		
+		what has our model actually learned?
+
+			I was really into sudoku back in like 2005 with a friend of mine and i wrote code to apply a number of logical techniques. this tool can be used to help us figure out what techniques our model has learned!
+
+			this is all basically going to be an on-going process of rewriting that project to make it easier to get puzzles in and out and to turn on options as we like and see how accurately the model finds these options
+
+			this is going to need to be a work in progress... i don't mind putting spare cycles into this over time.
+
+			aside: i think between this and the japanese project and my phd, it's going to be apparent that i can do a deep dive into just about anything...
 
 do a model comparison where the models pretty much all have around 1.5 million weights
 
@@ -356,12 +393,12 @@ do a model comparison where the models pretty much all have around 1.5 million w
 	allow the user to load a specified model to play with in the play sudoku.py script
 '''
 
-#model = build_3D_sudoku_model(32, (3,3,3), 50)
+model = build_3D_sudoku_model(32, (3,3,3), 50)
 #model = build_sudoku_model(64, (3,3), 50)
 
-model = load_model('model - one-shot_acc=0.7975')
-model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=0.0002), metrics=['accuracy'])
-model.summary()
+#model = load_model('model - one-shot_acc=0.9002 conv3d 32x100 + replay + ft')
+#model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=0.0002), metrics=['accuracy'])
+#model.summary()
 
 solved_puzzles = open('valid puzzles','r').read().split('\n')[:-1]
 
