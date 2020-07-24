@@ -251,24 +251,29 @@ def autoregressive_validation(puzzles, solutions, pencilmarks, model, recursions
 
 			(r,c), value = get_max_prediction(working_puzzle, predicted)
 
+			working_puzzle[r][c][value] = 1
 			if np.argmax(solutions[p][r][c]) == value:
 				accurate_predictions += 1
 			predictable += 1
 		
-		print (p)
-
 	return accurate_predictions / predictable
 
-model = build_3D_sudoku_model(32, (3,3,3), 20)
+''' Build a 2d model '''
 #model = build_2D_sudoku_model(64, (3,3), 50)
 
+''' Build a 3d model '''
+model = build_3D_sudoku_model(32, (3,3,3), 20)
+
+''' Load an existing model for further training/fine-tuning/evaluation/etc '''
 #model = load_model('model - one-shot_acc=0.9002 conv3d 32x100 + replay + ft')
 #model.compile(loss='categorical_crossentropy', optimizer=Adam(lr=0.0002), metrics=['accuracy'])
 #model.summary()
 
+''' Load some puzzles for training '''
 solved_puzzles = open('valid puzzles','r').read().split('\n')[:-1]
 
-batches = 1000
+''' Training loop '''
+batches = 10000
 batch_size = 128
 samples = batch_size * batches
 resamples = 0
