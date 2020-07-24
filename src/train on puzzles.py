@@ -105,6 +105,7 @@ def get_hardest_n_puzzles_by_mae(puzzles, solutions, predictions, n):
 		return []
 
 def create_random_homomorphism_in_place(puzzle, solution):
+	''' Given a cubic grid, create a random homomorphism in-place. '''
 	sbox = {k:v for k,v in zip(range(9),permutation(range(9)))}
 
 	new_puzzle = np.zeros((9,9,9))
@@ -122,11 +123,14 @@ def create_random_homomorphism_in_place(puzzle, solution):
 	return new_puzzle, new_solution
 
 def create_random_homomorphism(line):
+	''' Given a puzzle/solution pair as a string, create a random homomorphism. '''
 	sbox = {'0':'0','\t':'\t'}
 	sbox.update({str(k):str(v) for k,v in zip(range(1,10),permutation(range(1,10)))})
 	return ''.join([sbox[x] for x in line])
 
 def create_puzzle_solution_pair(line, predictability):
+	''' Given a puzzle/solution pair as a string, produce a random homomorphism
+		and then place the puzzle in a random state of completion. '''
 	homo = create_random_homomorphism(line)
 	puzzle, solution = list(homo.split()[0]), list(homo.split()[1])
 	mutable = [p != s for p,s in zip(puzzle,solution)]
@@ -148,7 +152,7 @@ def create_puzzle_solution_pair(line, predictability):
 	return [int(x) for x in puzzle], [int(x) for x in solution]
 
 def generate_pencil_marks(puzzle):
-
+	''' Given a puzzle, generate pencil marks by doing basic elimination. '''
 	# generate pencil marks for rows, cols, and blocks, then "and" them together for each position
 	row_marks = [set(range(9)) - set([np.argmax(puzzle[x//9][x%9]) for x in r if np.max(puzzle[x//9][x%9]) == 1]) for r in rows]
 	col_marks = [set(range(9)) - set([np.argmax(puzzle[x//9][x%9]) for x in c if np.max(puzzle[x//9][x%9]) == 1]) for c in cols]
@@ -163,6 +167,7 @@ def generate_pencil_marks(puzzle):
 	return pencil_marks + puzzle
 
 def to_sparse(data):
+	''' Convert the supplied puzzle from a string to a cubic shape. '''
 	frame = np.zeros((9,9,9),dtype=np.int8)
 	for i in range(81):
 		if data[i]:
@@ -172,6 +177,7 @@ def to_sparse(data):
 	return frame
 
 def create_dataset(source, samples, for_validation=False, puzzles_for_review = []):
+	''' Create the training dataset. '''
 	puzzles = np.zeros((samples, 9, 9, 9),dtype=np.int8)
 	solutions = np.zeros((samples, 9, 9, 9),dtype=np.int8)
 	pencilmarks = np.zeros((samples, 9, 9, 9),dtype=np.int8)
@@ -192,6 +198,8 @@ def create_dataset(source, samples, for_validation=False, puzzles_for_review = [
 	return puzzles, solutions, pencilmarks
 
 def validate_predictions(puzzles, solutions, pencilmarks, model, recursions=1):
+	''' Given a set of puzzles and a model, evaluate model accuracy by 
+		generating one-shot solutions. '''
 	predicted = model.predict(puzzles)
 
 	for i in range(1,recursions):
@@ -211,6 +219,8 @@ def validate_predictions(puzzles, solutions, pencilmarks, model, recursions=1):
 	return accurate_predictions / predictable
 
 def autoregressive_validation(puzzles, solutions, pencilmarks, model, recursions=1):
+	''' Given a set of puzzles and a model, evaluate model accuracy by 
+		generating solutions autoregressively. '''
 	def number_of_unpredicted(puzzle):
 		unpredicted = 0
 		for r in range(9):
@@ -244,6 +254,8 @@ def autoregressive_validation(puzzles, solutions, pencilmarks, model, recursions
 			if np.argmax(solutions[p][r][c]) == value:
 				accurate_predictions += 1
 			predictable += 1
+		
+		print (p)
 
 	return accurate_predictions / predictable
 
@@ -256,7 +268,7 @@ model = build_3D_sudoku_model(32, (3,3,3), 20)
 
 solved_puzzles = open('valid puzzles','r').read().split('\n')[:-1]
 
-batches = 10000
+batches = 1000
 batch_size = 128
 samples = batch_size * batches
 resamples = 0
