@@ -20,6 +20,7 @@ def ftoh(f):
 class display( Frame ):
 
 	def draw(self):
+		''' Draw the pencil marks and use a model for annotation if the user wishes '''
 		self.canvas.delete('all')
 		
 		if self.update_annotation:
@@ -67,7 +68,7 @@ class display( Frame ):
 		self.canvas.update_idletasks()
 	
 	def generate_pencil_marks(self):
-
+		''' Given a puzzle, generate pencil marks by doing basic elimination. '''
 		# generate pencil marks for rows, cols, and blocks, then "and" them together for each position
 		row_marks = [set(range(9)) - set([np.argmax(self.board[x//9][x%9]) for x in r if np.max(self.board[x//9][x%9]) == 1]) for r in rows]
 		col_marks = [set(range(9)) - set([np.argmax(self.board[x//9][x%9]) for x in c if np.max(self.board[x//9][x%9]) == 1]) for c in cols]
@@ -82,11 +83,13 @@ class display( Frame ):
 		return pencil_marks + self.board
 
 	def hard_reset(self):
+		''' Reset everything to zeros '''
 		self.board = np.zeros((9,9,9))
 		self.solution = np.zeros((9,9,9))
 		self.update_annotation = True
 
 	def reset_puzzle(self):
+		''' Repopulate everything with a random puzzle '''
 		selection = int(npr()*len(self.puzzle_collection))
 		puzzle = [int(x) for x in self.puzzle_collection[selection].split('\t')[0]]
 		solution = [int(x) for x in self.puzzle_collection[selection].split('\t')[1]]
@@ -106,7 +109,7 @@ class display( Frame ):
 		self.update_annotation = True
 
 	def keyboard(self, event):
-
+		''' Handle keyboard input. Doubles as a user manual ;) '''
 		if event.keysym == 'Up':			self.row -= 1
 		if event.keysym == 'Down':			self.row += 1
 		if event.keysym == 'Left':			self.col -= 1
@@ -140,11 +143,13 @@ class display( Frame ):
 		self.draw()
 	
 	def mouse_update(self, event):
+		''' Have the cursor follow the mouse around '''
 		self.row = int(event.y//SQ)
 		self.col = int(event.x//SQ)
 		self.draw()
 
 	def invent_canvas(self):
+		''' Set up the canvas '''
 		Frame.__init__(self)
 		self.master.title('Lane\'s Sudoku Helper')
 		self.master.rowconfigure(0,weight=1)
@@ -160,7 +165,7 @@ class display( Frame ):
 		self.draw()
 
 	def __init__(self):
-		
+		''' Define some variables and load a model and some puzzles '''		
 		self.assign_font = ('Helvetica', 48)
 		self.pencil_font = ('Helvetica', 12)
 
