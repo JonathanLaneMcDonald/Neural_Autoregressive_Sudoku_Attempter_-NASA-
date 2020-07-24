@@ -262,7 +262,7 @@ def autoregressive_validation(puzzles, solutions, pencilmarks, model, recursions
 #model = build_2D_sudoku_model(64, (3,3), 50)
 
 ''' Build a 3d model '''
-model = build_3D_sudoku_model(32, (3,3,3), 20)
+model = build_3D_sudoku_model(32, (3,3,3), 50)
 
 ''' Load an existing model for further training/fine-tuning/evaluation/etc '''
 #model = load_model('model - one-shot_acc=0.9002 conv3d 32x100 + replay + ft')
@@ -276,7 +276,7 @@ solved_puzzles = open('valid puzzles','r').read().split('\n')[:-1]
 batches = 10000
 batch_size = 128
 samples = batch_size * batches
-resamples = 0
+resamples = samples//5
 best_pred_acc = 0
 puzzles_for_review = []
 herstory = {'predictive_acc':[],'autoregressive_acc':[]}
