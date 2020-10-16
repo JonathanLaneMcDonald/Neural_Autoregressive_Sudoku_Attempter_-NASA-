@@ -151,7 +151,8 @@ std::vector<int> backtrack(std::vector<int> solution)
 	return puzzle[puzzle.size()-1];
 }
 
-void generate(int threadID, std::atomic_int* puzzle_count, int num_of_puzzles, int seeds_required, std::ofstream* outfile, std::mutex* mutex)
+void generate(int threadID, std::shared_ptr<std::atomic_int> puzzle_count, int num_of_puzzles, 
+	int seeds_required, std::shared_ptr<std::ofstream> outfile, std::shared_ptr<std::mutex> mutex)
 {
 	mutex->lock();
 	std::cout << "thread " << threadID << ": reporting for duty" << std::endl;
@@ -219,9 +220,9 @@ void generate(int threadID, std::atomic_int* puzzle_count, int num_of_puzzles, i
 
 int main()
 {
-	std::atomic_int* puzzle_count = new std::atomic_int(0);
-	std::ofstream* outfile = new std::ofstream("valid puzzles");
-	std::mutex* mutex = new std::mutex;
+	std::shared_ptr<std::atomic_int> puzzle_count = std::make_shared<std::atomic_int>(0);
+	std::shared_ptr<std::ofstream> outfile = std::make_shared<std::ofstream>("valid puzzles");
+	std::shared_ptr<std::mutex> mutex = std::make_shared<std::mutex>();
 
 	//generate(0, 1000000, 27, outfile, mutex);
 
