@@ -177,7 +177,7 @@ std::vector<int> backtrack(const std::vector<int>& solution)
 		std::rotate(eligible_moves.begin(), eligible_moves.begin() + 1, eligible_moves.end());
 		eligible_moves.pop_back();
 	}
-	std::cout << eligible_moves.size() << ' ' << puzzle.size() << ' ' << puzzle_to_string(puzzle.back()) << std::endl;
+	//std::cout << eligible_moves.size() << ' ' << puzzle.size() << ' ' << puzzle_to_string(puzzle.back()) << std::endl;
 	return puzzle.back();
 }
 
@@ -241,8 +241,7 @@ void generate(int threadID, std::shared_ptr<std::atomic_int> puzzle_count, int n
 				*outfile << std::endl;
 				mutex->unlock();
 
-				if (++(*puzzle_count) % 1000 == 0)
-					std::cout << threadID << "\t" << *puzzle_count << std::endl;
+				std::cout << threadID << "\t" << ++(*puzzle_count) << "\t" << base_puzzle << std::endl;
 			}
 		}
 	}
@@ -259,7 +258,7 @@ int main()
 
 	std::vector<std::thread> workers(0);
 
-	int threads = 4;
+	int threads = 1;
 	for (int i = 0; i < threads; i++)
 		workers.emplace_back(std::thread(generate, i, puzzle_count, puzzles_to_create, seed_numbers, outfile, mutex));
 
