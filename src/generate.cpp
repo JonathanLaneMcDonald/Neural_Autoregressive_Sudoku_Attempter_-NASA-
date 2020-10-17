@@ -16,9 +16,16 @@
 #define number_mask 15	//(1<<4)-1
 #define pencil_mask 8176//(1<<13)-1-number_mask
 
-std::string empty_puzzle = "000000000000000000000000000000000000000000000000000000000000000000000000000000000";
+static std::string empty_puzzle = "000000000000000000000000000000000000000000000000000000000000000000000000000000000";
 
-bool update_is_valid(std::vector<int>& puzzle, int position)
+/*
+Determine whether the value in the specified position invalidates the puzzle by checking to make sure that all 
+uncommitted positions have possible values and that no committed positions equal the newly placed value.
+
+@param		puzzle			is a const ref to a puzzle
+@param		position		is the newly filled position
+*/
+bool update_is_valid(const std::vector<int>& puzzle, int position)
 {
 	int value = puzzle[position];
 
@@ -35,7 +42,14 @@ bool update_is_valid(std::vector<int>& puzzle, int position)
 	return true;
 }
 
-std::vector<int> update(std::vector<int>& puzzle, int position, int value)
+/*
+Copy/update an existing puzzle and update the pencilmarks in the new puzzle.
+
+@param		puzzle			is a const ref to a puzzle
+@param		position		is the target position
+@param		value			is the value to place in that position
+*/
+std::vector<int> update(const std::vector<int>& puzzle, int position, int value)
 {
 	std::vector<int> new_puzzle(puzzle);
 	new_puzzle[position] = value;
@@ -50,6 +64,11 @@ std::vector<int> update(std::vector<int>& puzzle, int position, int value)
 	return new_puzzle;
 }
 
+/*
+Recursively solve a given puzzle using brute force and return a vector of all valid solutions.
+
+@param		puzzle			is the current state of the puzzle
+*/
 std::vector<std::vector<int>> brutish_solver(std::vector<int> puzzle)
 {
 	std::vector<std::vector<int>> solutions;
@@ -86,7 +105,12 @@ std::vector<std::vector<int>> brutish_solver(std::vector<int> puzzle)
 		return solutions;
 }
 
-std::vector<int> puzzle_prep(std::string puzzle_as_string = empty_puzzle)
+/*
+Prepare a playable puzzle from a string of a puzzle
+
+@param		puzzle_as_string		is a string representation of the current state of the puzzle
+*/
+std::vector<int> puzzle_prep(const std::string puzzle_as_string = empty_puzzle)
 {
 	std::vector<int> puzzle;
 	for (int i = 0; i < 81; i ++)
@@ -101,7 +125,12 @@ std::vector<int> puzzle_prep(std::string puzzle_as_string = empty_puzzle)
 	return puzzle;
 }
 
-std::string puzzle_to_string(std::vector<int> puzzle)
+/*
+Prepare a string representation from a given, playable puzzle
+
+@param		puzzle			is a const ref to a playable puzzle
+*/
+std::string puzzle_to_string(const std::vector<int>& puzzle)
 {
 	std::string string;
 	string.reserve(81);
@@ -117,7 +146,13 @@ std::string puzzle_to_string(std::vector<int> puzzle)
 	return string;
 }
 
-std::vector<int> backtrack(std::vector<int> solution)
+/*
+Given a solved sudoku puzzle, randomly remove numbers until there is more than one solution.
+
+@param		solution		is a const ref to a solved sudoku puzzle
+@param		minimum_hints	is the minimum number of hints that should exist in the puzzle
+*/
+std::vector<int> backtrack(const std::vector<int>& solution, int minimum_hints)
 {
 	std::random_device rd;
 	std::mt19937 g(rd());
@@ -125,11 +160,13 @@ std::vector<int> backtrack(std::vector<int> solution)
 	std::vector<std::vector<int>> puzzle = {solution};
 
 	int current_move = 0;
+
 	std::vector<int> eligible_moves;
 	for (int i = 0; i < 81; i ++)
 		eligible_moves.push_back(i);
+
 	std::shuffle(eligible_moves.begin(), eligible_moves.end(), g);
-	while (current_move < eligible_moves.size() && 5 < eligible_moves.size())
+	while (current_move < eligible_moves.size() && minimum_hints < eligible_moves.size())
 	{
 		int position = eligible_moves[current_move];
 		int value = puzzle[puzzle.size()-1][position];
@@ -151,8 +188,8 @@ std::vector<int> backtrack(std::vector<int> solution)
 	return puzzle[puzzle.size()-1];
 }
 
-void generate(int threadID, std::shared_ptr<std::atomic_int> puzzle_count, int num_of_puzzles, 
-	int seeds_required, std::shared_ptr<std::ofstream> outfile, std::shared_ptr<std::mutex> mutex)
+void generate(int threadID, std::shared_ptr<std::atomic_int> puzzle_count, int num_of_puzzles, int seeds_required, 
+	int minimum_hints, std::shared_ptr<std::ofstream> outfile, std::shared_ptr<std::mutex> mutex)
 {
 	mutex->lock();
 	std::cout << "thread " << threadID << ": reporting for duty" << std::endl;
@@ -192,7 +229,7 @@ void generate(int threadID, std::shared_ptr<std::atomic_int> puzzle_count, int n
 			{
 				int selection = int(solutions.size()*_dis(_gen));
 
-				auto base_puzzle = puzzle_to_string(backtrack(solutions[selection]));
+				auto base_puzzle = puzzle_to_string(backtrack(solutions[selection], minimum_hints));
 
 				mutex->lock();
 				*outfile << base_puzzle << '\t';
@@ -220,6 +257,10 @@ void generate(int threadID, std::shared_ptr<std::atomic_int> puzzle_count, int n
 
 int main()
 {
+	int puzzles_to_create = 100000;
+	int seed_numbers = 27;
+	int minimum_hints = 40;
+
 	std::shared_ptr<std::atomic_int> puzzle_count = std::make_shared<std::atomic_int>(0);
 	std::shared_ptr<std::ofstream> outfile = std::make_shared<std::ofstream>("valid puzzles");
 	std::shared_ptr<std::mutex> mutex = std::make_shared<std::mutex>();
@@ -230,7 +271,7 @@ int main()
 
 	int threads = 4;
 	for (int i = 0; i < threads; i++)
-		workers.emplace_back(std::thread(generate, i, puzzle_count, 100000, 27, outfile, mutex));
+		workers.emplace_back(std::thread(generate, i, puzzle_count, puzzles_to_create, seed_numbers, minimum_hints, outfile, mutex));
 
 	for (int i = 0; i < workers.size(); i++)
 		workers[i].join();
@@ -239,11 +280,3 @@ int main()
 
 	return 0;
 }
-/*
-	std::cout << number_mask << std::endl;
-	std::cout << pencil_mask << std::endl;
-
-	std::string puzzle = "000000000001020300020304050006030700030872040002090800060209080007060900000000000";
-	brutish_solver(puzzle_prep(puzzle));
-	return 0;
-}*/
