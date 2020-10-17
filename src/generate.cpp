@@ -152,44 +152,37 @@ Given a solved sudoku puzzle, randomly remove numbers until there is more than o
 @param		solution		is a const ref to a solved sudoku puzzle
 @param		minimum_hints	is the minimum number of hints that should exist in the puzzle
 */
-std::vector<int> backtrack(const std::vector<int>& solution, int minimum_hints)
+std::vector<int> backtrack(const std::vector<int>& solution)
 {
 	std::random_device rd;
 	std::mt19937 g(rd());
 
 	std::vector<std::vector<int>> puzzle = {solution};
 
-	int current_move = 0;
-
 	std::vector<int> eligible_moves;
 	for (int i = 0; i < 81; i ++)
 		eligible_moves.push_back(i);
 
-	std::shuffle(eligible_moves.begin(), eligible_moves.end(), g);
-	while (current_move < eligible_moves.size() && minimum_hints < eligible_moves.size())
+	while (eligible_moves.size())
 	{
-		int position = eligible_moves[current_move];
-		int value = puzzle[puzzle.size()-1][position];
-		auto new_puzzle = puzzle[puzzle.size()-1];
+		std::shuffle(eligible_moves.begin(), eligible_moves.end(), g);
+
+		int position = eligible_moves.front();
+		auto new_puzzle = puzzle.back();
 		new_puzzle[position] = 0;
 		if (brutish_solver(puzzle_prep(puzzle_to_string(new_puzzle))).size() == 1)
 		{
 			puzzle.push_back(new_puzzle);
-			eligible_moves.erase(std::remove_if(eligible_moves.begin(), eligible_moves.end(), [position](int x){return x == position;}), eligible_moves.end());
-			std::shuffle(eligible_moves.begin(), eligible_moves.end(), g);
-			current_move = 0;
 		}
-		else
-		{
-			current_move ++;
-		}
+		std::rotate(eligible_moves.begin(), eligible_moves.begin() + 1, eligible_moves.end());
+		eligible_moves.pop_back();
 	}
-	std::cout << eligible_moves.size() << ' ' << puzzle.size() << ' ' << puzzle_to_string(puzzle[puzzle.size()-1]) << std::endl;
-	return puzzle[puzzle.size()-1];
+	std::cout << eligible_moves.size() << ' ' << puzzle.size() << ' ' << puzzle_to_string(puzzle.back()) << std::endl;
+	return puzzle.back();
 }
 
 void generate(int threadID, std::shared_ptr<std::atomic_int> puzzle_count, int num_of_puzzles, int seeds_required, 
-	int minimum_hints, std::shared_ptr<std::ofstream> outfile, std::shared_ptr<std::mutex> mutex)
+	std::shared_ptr<std::ofstream> outfile, std::shared_ptr<std::mutex> mutex)
 {
 	mutex->lock();
 	std::cout << "thread " << threadID << ": reporting for duty" << std::endl;
@@ -229,7 +222,7 @@ void generate(int threadID, std::shared_ptr<std::atomic_int> puzzle_count, int n
 			{
 				int selection = int(solutions.size()*_dis(_gen));
 
-				auto base_puzzle = puzzle_to_string(backtrack(solutions[selection], minimum_hints));
+				auto base_puzzle = puzzle_to_string(backtrack(solutions[selection]));
 
 				mutex->lock();
 				*outfile << base_puzzle << '\t';
@@ -259,19 +252,16 @@ int main()
 {
 	int puzzles_to_create = 100000;
 	int seed_numbers = 27;
-	int minimum_hints = 40;
 
 	std::shared_ptr<std::atomic_int> puzzle_count = std::make_shared<std::atomic_int>(0);
 	std::shared_ptr<std::ofstream> outfile = std::make_shared<std::ofstream>("valid puzzles");
 	std::shared_ptr<std::mutex> mutex = std::make_shared<std::mutex>();
 
-	//generate(0, 1000000, 27, outfile, mutex);
-
 	std::vector<std::thread> workers(0);
 
 	int threads = 4;
 	for (int i = 0; i < threads; i++)
-		workers.emplace_back(std::thread(generate, i, puzzle_count, puzzles_to_create, seed_numbers, minimum_hints, outfile, mutex));
+		workers.emplace_back(std::thread(generate, i, puzzle_count, puzzles_to_create, seed_numbers, outfile, mutex));
 
 	for (int i = 0; i < workers.size(); i++)
 		workers[i].join();
