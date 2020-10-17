@@ -1,4 +1,6 @@
 
+// g++ suaide.cpp -lcurses -O3 -o suaide
+
 /** TODO Currently Working On: Fix the bugs in Almost Deadly Polygons.  Those damned Extended Polygons are still acting up.*/
 
 /**
@@ -189,7 +191,7 @@ public:
 	int left;
 	int right;
 
-	Technique(char *title, int responsibility_class, int responsibilities, int x, int y)
+	Technique(const char *title, int responsibility_class, int responsibilities, int x, int y)
 	{
 		strcpy(this->title,title);
 		this->responsibility_class = responsibility_class;
@@ -204,7 +206,7 @@ public:
 		right = null;
 	}
 
-	Technique(char *title, int responsibility_class, int responsibilities, int x, int y, int up, int down, int left, int right)
+	Technique(const char *title, int responsibility_class, int responsibilities, int x, int y, int up, int down, int left, int right)
 	{
 		strcpy(this->title,title);
 		this->responsibility_class = responsibility_class;
@@ -2174,7 +2176,7 @@ ok, after finding out that my polygons thing was buggy (turning up false negativ
 seems to be working so far.  so i'll move on to something else now.
 */
 
-bool valid_corner( int current_position, int *breakmap, vector <int> *pending_friends, bool *valid )
+void valid_corner( int current_position, int *breakmap, vector <int> *pending_friends, bool *valid )
 {
 /**
 use a bool to see if the cell can find a valid configuration of peers, then check to make sure all the pending friends are in the valid map.
@@ -2642,7 +2644,7 @@ public:
 		return sink.size();
 	}
 
-	int resize(int size)
+	void resize(int size)
 	{
 		sink.resize(size);
 		edge.resize(size);
