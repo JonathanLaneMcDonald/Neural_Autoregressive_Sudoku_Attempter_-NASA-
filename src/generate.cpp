@@ -181,8 +181,18 @@ std::vector<int> backtrack(const std::vector<int>& solution)
 	return puzzle.back();
 }
 
-void generate(int threadID, std::shared_ptr<std::atomic_int> puzzle_count, int num_of_puzzles, int seeds_required, 
-	std::shared_ptr<std::ofstream> outfile, std::shared_ptr<std::mutex> mutex)
+/*
+Generate puzzles by randomly placing numbers in an empty puzzle and backtracking from a random solution
+
+@param		threadID		the ID of the current thread
+@param		puzzle_count	the number of puzzles generated so far across all threads
+@param		num_of_puzzles	the number of puzzles we want to generate in total
+@param		seeds_required	the number of seed values to place when initializing a puzzle
+@param		outfile			the file to which puzzles and solutions are written
+@param		mutex			make sure we don't talk over each other on the shared ofstream
+*/
+void generate(int threadID, std::shared_ptr<std::atomic_int> puzzle_count, int num_of_puzzles,
+	int seeds_required, std::shared_ptr<std::ofstream> outfile, std::shared_ptr<std::mutex> mutex)
 {
 	mutex->lock();
 	std::cout << "thread " << threadID << ": reporting for duty" << std::endl;
@@ -201,14 +211,14 @@ void generate(int threadID, std::shared_ptr<std::atomic_int> puzzle_count, int n
 		while (seeds_sewn < seeds_required && attempts < 1000)
 		{
 			int position = int(81*_dis(_gen));
-			if (puzzle[puzzle.size()-1][position] & number_mask)
+			if (puzzle.back()[position] & number_mask)
 			{
 				//pass
 			}
 			else
 			{
-				puzzle.push_back(update(puzzle[puzzle.size()-1], position, (seeds_sewn%9)+1));
-				if (update_is_valid(puzzle[puzzle.size()-1], position))
+				puzzle.push_back(update(puzzle.back(), position, (seeds_sewn % 9)+1));
+				if (update_is_valid(puzzle.back(), position))
 					seeds_sewn ++;
 				else
 					puzzle.pop_back();
@@ -217,7 +227,7 @@ void generate(int threadID, std::shared_ptr<std::atomic_int> puzzle_count, int n
 		}
 		if (seeds_sewn == seeds_required)
 		{
-			auto solutions = brutish_solver(puzzle[puzzle.size()-1]);
+			auto solutions = brutish_solver(puzzle.back());
 			if (!solutions.empty())
 			{
 				int selection = int(solutions.size()*_dis(_gen));
@@ -235,16 +245,6 @@ void generate(int threadID, std::shared_ptr<std::atomic_int> puzzle_count, int n
 					std::cout << threadID << "\t" << *puzzle_count << std::endl;
 			}
 		}
-		else
-		{
-			std::cout << "attempts exceeded limit: ";
-			for (int i : puzzle[puzzle.size()-1])
-				if (i&number_mask)
-					std::cout << i;
-				else
-					std::cout << '0';
-			std::cout << std::endl;
-		}		
 	}
 }
 
