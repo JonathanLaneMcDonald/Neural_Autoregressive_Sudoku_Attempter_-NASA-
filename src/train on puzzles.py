@@ -280,10 +280,10 @@ def autoregressive_validation(puzzles, solutions, model, recursions=1):
 
 
 """ Build a 2d model """
-model = build_2d_sudoku_model(32, (3,3), 10)
+# model = build_2d_sudoku_model(64, (3,3), 50)
 
 """ Build a 3d model """
-# model = build_3d_sudoku_model(32, (3,3,3), 50)
+model = build_3d_sudoku_model(32, (3,3,3), 50)
 
 """ Load an existing model for further training/fine-tuning/evaluation/etc """
 # model = load_model('model - one-shot_acc=0.8232')
@@ -294,7 +294,7 @@ model = build_2d_sudoku_model(32, (3,3), 10)
 solved_puzzles = open('valid puzzles', 'r').read().split('\n')[:-1]
 
 """ Training loop """
-batches = 1000
+batches = 10000
 batch_size = 128
 samples = batch_size * batches
 resamples = samples // 5
@@ -309,10 +309,10 @@ for e in range(1,1000):
 	predictions = model.predict(puzzles)
 	puzzles_for_review = get_hardest_n_puzzles_by_mae(puzzles, solutions, predictions, resamples)
 
-	puzzles, solutions = create_dataset(solved_puzzles, 10, True, [])
+	puzzles, solutions = create_dataset(solved_puzzles, 1000, True, [])
 	herstory['predictive_acc'] += [validate_predictions(puzzles, solutions, model)]
 
-	puzzles, solutions = create_dataset(solved_puzzles, 1, True, [])
+	puzzles, solutions = create_dataset(solved_puzzles, 100, True, [])
 	herstory['autoregressive_acc'] += [autoregressive_validation(puzzles, solutions, model)]
 
 	for key, value in history.history.items():
