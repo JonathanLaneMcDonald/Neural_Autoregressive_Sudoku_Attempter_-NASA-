@@ -1,4 +1,6 @@
 
+from sys import argv
+
 from groups import rows, cols, blks, membership
 
 import numpy as np
@@ -196,19 +198,32 @@ class SudokuUI(Frame):
 		self.draw()
 
 	def __init__(self):
-		''' Define some variables and load a model and some puzzles '''		
+		""" Define some variables and load a model and some puzzles """
+
 		self.assign_font = ('Helvetica', 48)
 		self.pencil_font = ('Helvetica', 12)
 
-		self.board = np.zeros((9,9,9))
-		self.model = load_model('model - ar=0.9057')
-		
-		self.update_annotation = True
-		self.annotate_with_model = 0
-		self.annotation = np.zeros((9,9,9))
-		self.solution = np.zeros((9,9,9))
+		self.board = np.zeros((9, 9, 9))
 
-		self.puzzle_collection = open('valid puzzles','r').read().split('\n')[:-1]
+		if len(argv) == 2:
+			try:
+				self.model = load_model(argv[1])
+			except IOError:
+				print('error loading model')
+				self.model = None
+		else:
+			self.model = None
+
+		if self.model:
+			self.annotate_with_model = True
+		else:
+			self.annotate_with_model = False
+
+		self.update_annotation = True
+		self.annotation = np.zeros((9, 9, 9))
+		self.solution = np.zeros((9, 9, 9))
+
+		self.puzzle_collection = open('valid puzzles', 'r').read().split('\n')[:-1]
 		self.show_solution = 0
 
 		self.row = 4
