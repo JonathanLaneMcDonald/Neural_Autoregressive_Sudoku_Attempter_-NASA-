@@ -83,7 +83,15 @@ class SudokuUI(Frame):
 									text=str(p+1), fill='#ff'+ftoh(value)+ftoh(value))
 						
 		self.canvas.update_idletasks()
-	
+
+		if self.capture_frames:
+			self.frame_number += 1
+			self.canvas.postscript(file='sudoku frame ' + self.front_pad_me(str(self.frame_number), '0', 6) + '.ps', colormode='color')
+
+	@staticmethod
+	def front_pad_me(string, pad_symbol, total_length):
+		return pad_symbol*(total_length-len(string)) + string
+
 	def generate_pencil_marks(self):
 		""" Given a puzzle, generate pencil marks by doing basic elimination. """
 
@@ -159,6 +167,10 @@ class SudokuUI(Frame):
 			self.board[self.row][self.col][np.argmax(self.annotation[self.row][self.col])] = 1
 			self.update_annotation = True
 
+		if event.char == 'F':
+			self.capture_frames ^= 1
+			print('frame capture state:', bool(self.capture_frames))
+
 		if event.keysym.isdigit():
 			number = np.zeros(9)
 			if int(event.keysym):
@@ -229,6 +241,9 @@ class SudokuUI(Frame):
 		self.row = 4
 		self.col = 4
 		
+		self.capture_frames = 0
+		self.frame_number = 0
+
 		self.reset_puzzle()
 		self.invent_canvas()
 
