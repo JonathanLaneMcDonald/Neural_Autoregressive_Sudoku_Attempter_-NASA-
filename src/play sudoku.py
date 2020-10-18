@@ -73,7 +73,7 @@ class SudokuUI(Frame):
 						prefs = self.annotation[r][c]
 						for p in range(9):
 							value = 1-prefs[p]
-							if prefs[p] > 0.98:
+							if prefs[p] > 0.99:
 								self.canvas.create_text(
 									c*SQ + txt[p][0], r*SQ + txt[p][1], font=self.pencil_font,
 									text=str(p+1), fill='#'+ftoh(value)+ftoh(value)+'ff')
